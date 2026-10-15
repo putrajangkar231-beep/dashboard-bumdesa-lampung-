@@ -1,69 +1,142 @@
-// Ganti dengan Link Public CSV Anda dari Google Sheets (Tab BUM Desa)
-const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?gid=GANTIKAN_GID_TAB_BUMDESA&single=true&output=csv';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Pendataan BUMDesa Terpadu - Provinsi Lampung</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- PapaParse untuk membaca CSV Google Sheet -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
-function fetchGoogleSheetData() {
-    updateSyncStatus('Syncing...', 'bg-amber-500');
-
-    Papa.parse(GOOGLE_SHEET_CSV_URL, {
-        download: true,
-        header: false, // Set false agar kita bisa lewati baris judul (Baris 1-5)
-        skipEmptyLines: true,
-        complete: function(results) {
-            const rawRows = results.data;
-            
-            // Mencari indeks baris tempat Header "Nama BUM Desa" berada
-            let headerIndex = -1;
-            for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
-                if (rawRows[i].some(cell => cell && cell.toString().includes('Nama BUM Desa'))) {
-                    headerIndex = i;
-                    break;
-                }
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
             }
-
-            if (headerIndex === -1) {
-                console.warn("Header tidak ditemukan, menggunakan data default.");
-                return;
-            }
-
-            // Ambil data BUMDesa mulai dari baris setelah header nomor kolom (misal setelah baris dengan angka 1, 2, 3...)
-            const dataRows = rawRows.slice(headerIndex + 2);
-
-            const parsedData = dataRows.filter(row => row[10] && row[10].trim() !== '').map(row => {
-                // Pemetaan Kolom Sesuai Tangkapan Layar:
-                // Kolom 3 (Index 2)  : Provinsi
-                // Kolom 5 (Index 4)  : Kabupaten/Kota
-                // Kolom 7 (Index 6)  : Kecamatan
-                // Kolom 9 (Index 8)  : Desa
-                // Kolom 11 (Index 10): Nama BUM Desa
-                // Kolom 12 (Index 11): Tahun Pendirian
-                // Kolom 13 (Index 12): Nomor Perdes
-                
-                return {
-                    provinsi: row[2] || 'LAMPUNG',
-                    kabupaten: row[4] || 'LAMPUNG SELATAN',
-                    kecamatan: row[6] || '-',
-                    desa: row[8] || '-',
-                    namaBumdes: row[10] || '-',
-                    tahun: parseInt(row[11]) || 2016,
-                    noPerdes: row[12] || '-',
-                    statusHukum: row[13] || 'Belum Berbadan Hukum', // Kolom status pendaftaran
-                    direktur: row[26] || '-',                      // Kolom Direktur
-                    pegawai: parseInt(row[32]) || 0,               // Kolom Jumlah Pegawai
-                    modalApbdes: parseRupiah(row[54] || row[43] || 0) // Kolom Total Modal APBDesa
-                };
-            });
-
-            console.log("Data BUMDesa Terbaca:", parsedData);
-            
-            // Update Dashboard
-            allBumdesData = parsedData;
-            initFilterDropdowns(parsedData);
-            applyFilters();
-            updateSyncStatus('Connected (Google Sheet)', 'bg-emerald-500');
-        },
-        error: function(err) {
-            console.error("Gagal membaca Google Sheets CSV:", err);
-            updateSyncStatus('Disconnected', 'bg-rose-500');
+          }
         }
-    });
-}
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- TOPBAR HEADER -->
+  <header class="bg-brand-900 text-white shadow-lg sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row items-center justify-between py-3 gap-3">
+        
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-start">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-brand-500 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-inner">
+              <i class="fa-solid fa-building-columns"></i>
+            </div>
+            <div>
+              <h1 class="text-lg font-bold leading-tight">Dashboard BUMDesa Lampung</h1>
+              <p class="text-xs text-brand-100 flex items-center gap-1">
+                <span id="syncStatusBadge" class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <span id="syncStatusText">Menghubungkan ke Google Sheet...</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sheet URL Input & Actions -->
+        <div class="flex items-center space-x-2 w-full md:w-auto">
+          <div class="relative flex-grow md:w-80">
+            <input type="text" id="csvUrlInput" 
+              value="https://docs.google.com/spreadsheets/d/e/2PACX-1vRUaww1H2Gp26beZRhRa18rzbJbjKzbziHwUas4XTUQfftg0AIDvBLegfFm23wfyxOWNGgvmTDi3WoZ/pub?gid=1479470316&single=true&output=csv"
+              class="w-full bg-brand-800 text-xs text-brand-100 rounded-lg pl-8 pr-3 py-2 border border-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-brand-900 transition"
+              placeholder="URL CSV Google Sheet...">
+            <i class="fa-solid fa-link absolute left-2.5 top-2.5 text-brand-400 text-xs"></i>
+          </div>
+          <button onclick="fetchGoogleSheetData()" class="bg-brand-500 hover:bg-brand-600 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow transition flex items-center gap-1.5 whitespace-nowrap">
+            <i class="fa-solid fa-sync"></i>
+            <span>Sinkronkan</span>
+          </button>
+          <button onclick="exportToCSV()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg text-xs font-semibold shadow transition flex items-center gap-1.5 whitespace-nowrap">
+            <i class="fa-solid fa-file-excel"></i>
+            <span>Export CSV</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- KPI CARDS GRID -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Card 1: Total BUMDesa -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between hover:shadow-md transition">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total BUMDesa</p>
+          <h3 id="kpiTotalBumdes" class="text-2xl font-extrabold text-slate-800 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-building text-brand-500 mr-1"></i> Terdata di sistem</p>
+        </div>
+        <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl">
+          <i class="fa-solid fa-tree-city"></i>
+        </div>
+      </div>
+
+      <!-- Card 2: Status Berbadan Hukum -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between hover:shadow-md transition">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Berbadan Hukum (AHU)</p>
+          <h3 id="kpiBerbadanHukum" class="text-2xl font-extrabold text-slate-800 mt-1">0</h3>
+          <p class="text-xs text-slate-500 mt-1"><span id="kpiRasioAhu" class="text-emerald-600 font-bold">0%</span> dari total BUMDesa</p>
+        </div>
+        <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl">
+          <i class="fa-solid fa-certificate"></i>
+        </div>
+      </div>
+
+      <!-- Card 3: Akumulasi Modal APBDesa -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between hover:shadow-md transition">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Modal APBDesa</p>
+          <h3 id="kpiTotalModal" class="text-xl font-extrabold text-slate-800 mt-1">Rp 0</h3>
+          <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-coins text-amber-500 mr-1"></i> Penyertaan Modal</p>
+        </div>
+        <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 text-xl">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+      </div>
+
+      <!-- Card 4: Tenaga Kerja -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between hover:shadow-md transition">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tenaga Kerja Terserap</p>
+          <h3 id="kpiTotalPegawai" class="text-2xl font-extrabold text-slate-800 mt-1">0 Orang</h3>
+          <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-users text-indigo-500 mr-1"></i> Pekerja/Karyawan</p>
+        </div>
+        <div class="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl">
+          <i class="fa-solid fa-user-gear"></i>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CHARTS SECTION -->
