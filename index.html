@@ -140,3 +140,568 @@
     </div>
 
     <!-- CHARTS SECTION -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Chart 1: Bar Chart Status Badan Hukum -->
+      <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-chart-column text-brand-600"></i>
+            <span>Sebaran Status Badan Hukum per Kecamatan</span>
+          </h2>
+        </div>
+        <div class="relative h-72">
+          <canvas id="barChartStatus"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Donut Chart Proporsi Legalitas -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-brand-600"></i>
+            <span>Proporsi Status Legalitas</span>
+          </h2>
+        </div>
+        <div class="relative h-72 flex items-center justify-center">
+          <canvas id="donutChartLegalitas"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- DATA TABLE SECTION -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      
+      <!-- Table Filter Header -->
+      <div class="p-5 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        
+        <div>
+          <h2 class="text-base font-bold text-slate-800">Daftar Pendataan BUMDesa</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Kelola dan filter informasi BUMDesa di seluruh wilayah</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="flex flex-wrap items-center gap-3">
+          
+          <!-- Filter Kecamatan -->
+          <select id="filterKecamatan" onchange="applyFilters()" class="bg-white border border-slate-300 text-xs text-slate-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <option value="">Semua Kecamatan</option>
+          </select>
+
+          <!-- Filter Status Hukum -->
+          <select id="filterStatusHukum" onchange="applyFilters()" class="bg-white border border-slate-300 text-xs text-slate-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <option value="">Semua Status Legalitas</option>
+            <option value="Dokumen Badan Hukum Terverifikasi">Terverifikasi AHU</option>
+            <option value="Pendaftaran Badan Hukum">Proses Pendaftaran</option>
+            <option value="Belum Berbadan Hukum">Belum Berbadan Hukum</option>
+          </select>
+
+          <!-- Live Search -->
+          <div class="relative min-w-[200px]">
+            <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Cari Nama BUMDesa / Desa / Direktur..." class="w-full bg-white border border-slate-300 text-xs text-slate-700 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            <i class="fa-solid fa-search absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Table Body -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-600 uppercase text-[11px] tracking-wider font-bold border-b border-slate-200">
+              <th class="py-3.5 px-4">No</th>
+              <th class="py-3.5 px-4">Kecamatan / Desa</th>
+              <th class="py-3.5 px-4">Nama BUMDesa</th>
+              <th class="py-3.5 px-4">Tahun / Perdes</th>
+              <th class="py-3.5 px-4">Status Legalitas</th>
+              <th class="py-3.5 px-4">Direktur</th>
+              <th class="py-3.5 px-4 text-center">Pegawai</th>
+              <th class="py-3.5 px-4 text-right">Modal APBDesa</th>
+              <th class="py-3.5 px-4 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-100 text-xs text-slate-700">
+            <!-- Dynamic Rows Generated Here -->
+            <tr>
+              <td colspan="9" class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-spinner fa-spin text-2xl text-brand-500 mb-2"></i>
+                <p>Memuat data dari Google Sheet...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer / Pagination -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <span id="tableInfo">Menampilkan 0 data</span>
+        <div class="flex space-x-1" id="paginationControls">
+          <!-- Dynamic Pagination Buttons -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL DETAIL BUMDESA -->
+  <div id="detailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-2xl mx-4 overflow-hidden transform scale-95 transition-transform duration-200" id="modalContainer">
+      
+      <!-- Modal Header -->
+      <div class="bg-brand-900 text-white px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white font-bold">
+            <i class="fa-solid fa-building"></i>
+          </div>
+          <div>
+            <h3 id="modalTitle" class="text-base font-bold">Detail BUMDesa</h3>
+            <p id="modalSubtitle" class="text-xs text-brand-200">Informasi Lengkap</p>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-brand-200 hover:text-white text-lg transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs" id="modalBody">
+        <!-- Content inserted dynamically -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 flex justify-end">
+        <button onclick="closeModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-semibold transition">Tutup</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let masterData = [];
+    let filteredData = [];
+    let currentPage = 1;
+    const rowsPerPage = 10;
+
+    let barChartInstance = null;
+    let donutChartInstance = null;
+
+    // Load data otomatis saat halaman selesai dimuat
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchGoogleSheetData();
+    });
+
+    // Helper: Parse Angka/Rupiah dari Teks Google Sheet
+    function parseRupiah(val) {
+      if (!val) return 0;
+      let clean = val.toString().replace(/[^0-9]/g, '');
+      return parseInt(clean, 10) || 0;
+    }
+
+    // Helper: Update Badge Status Sinkronisasi
+    function updateSyncStatus(text, bgClass) {
+      document.getElementById('syncStatusText').textContent = text;
+      const badge = document.getElementById('syncStatusBadge');
+      badge.className = `inline-block w-2 h-2 rounded-full ${bgClass}`;
+    }
+
+    // MAIN FUNCTION: Fetch Data dari Google Sheet CSV
+    function fetchGoogleSheetData() {
+      const csvUrl = document.getElementById('csvUrlInput').value.trim();
+      if (!csvUrl) {
+        alert('Masukkan URL CSV Google Sheet terlebih dahulu!');
+        return;
+      }
+
+      updateSyncStatus('Sinkronisasi data...', 'bg-amber-400 animate-pulse');
+
+      Papa.parse(csvUrl, {
+        download: true,
+        header: false, // Diset false agar kita bisa fleksibel mencari header
+        skipEmptyLines: true,
+        complete: function(results) {
+          const rawRows = results.data;
+          
+          if (!rawRows || rawRows.length === 0) {
+            updateSyncStatus('Gagal: Data Kosong', 'bg-rose-500');
+            return;
+          }
+
+          // Cari indeks baris tempat kata "Nama BUM Desa" berada (melompati baris judul laporan)
+          let headerIndex = -1;
+          for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+            if (rawRows[i].some(cell => cell && cell.toString().toLowerCase().includes('nama bum desa'))) {
+              headerIndex = i;
+              break;
+            }
+          }
+
+          // Fallback jika header tidak terdeteksi otomatis, gunakan baris 4
+          if (headerIndex === -1) headerIndex = 4;
+
+          // Ambil data BUMDesa setelah baris nomor kolom (headerIndex + 2)
+          const dataRows = rawRows.slice(headerIndex + 2);
+
+          // Mapping data dari kolom Google Sheet
+          masterData = dataRows
+            .filter(row => row[10] && row[10].trim() !== '' && !row[10].toString().toLowerCase().includes('kolom'))
+            .map((row, idx) => ({
+              id: idx + 1,
+              provinsi: row[2] || 'LAMPUNG',
+              kabupaten: row[4] || 'LAMPUNG SELATAN',
+              kecamatan: (row[6] || '-').trim(),
+              desa: (row[8] || '-').trim(),
+              namaBumdes: (row[10] || '-').trim(),
+              tahun: parseInt(row[11]) || 2016,
+              noPerdes: row[12] || '-',
+              statusHukum: (row[13] || 'Belum Berbadan Hukum').trim(),
+              noSertifikatNama: row[17] || '-',
+              noSertifikatAhu: row[21] || '-',
+              penasehat: row[22] || '-',
+              pengawas: row[24] || '-',
+              direktur: row[26] || '-',
+              sekretaris: row[28] || '-',
+              bendahara: row[30] || '-',
+              pegawai: parseRupiah(row[32]),
+              unitUsaha: row[33] || '-',
+              modalApbdes: parseRupiah(row[54] || row[43] || 0),
+              modalLain: parseRupiah(row[64] || 0)
+            }));
+
+          console.log('Master Data Loaded:', masterData.length, 'records');
+
+          populateKecamatanDropdown(masterData);
+          applyFilters();
+          updateSyncStatus('Connected (Google Sheet Live)', 'bg-emerald-400');
+        },
+        error: function(err) {
+          console.error("Gagal membaca Google Sheets CSV:", err);
+          updateSyncStatus('Terputus (Error CSV)', 'bg-rose-500');
+          document.getElementById('tableBody').innerHTML = `
+            <tr>
+              <td colspan="9" class="py-8 text-center text-rose-500 font-semibold">
+                Gagal mengambil data dari Google Sheet. Pastikan link CSV publik sudah benar.
+              </td>
+            </tr>
+          `;
+        }
+      });
+    }
+
+    // Populate Options Dropdown Kecamatan
+    function populateKecamatanDropdown(data) {
+      const select = document.getElementById('filterKecamatan');
+      const kecSet = new Set(data.map(item => item.kecamatan).filter(k => k && k !== '-'));
+      
+      select.innerHTML = '<option value="">Semua Kecamatan</option>';
+      Array.from(kecSet).sort().forEach(kec => {
+        const opt = document.createElement('option');
+        opt.value = kec;
+        opt.textContent = kec;
+        select.appendChild(opt);
+      });
+    }
+
+    // Filter Data berdasarkan Input User
+    function applyFilters() {
+      const selectedKec = document.getElementById('filterKecamatan').value.toLowerCase();
+      const selectedStatus = document.getElementById('filterStatusHukum').value.toLowerCase();
+      const searchKeyword = document.getElementById('searchInput').value.toLowerCase();
+
+      filteredData = masterData.filter(item => {
+        const matchKec = !selectedKec || item.kecamatan.toLowerCase() === selectedKec;
+        const matchStatus = !selectedStatus || item.statusHukum.toLowerCase().includes(selectedStatus);
+        const matchSearch = !searchKeyword || 
+          item.namaBumdes.toLowerCase().includes(searchKeyword) ||
+          item.desa.toLowerCase().includes(searchKeyword) ||
+          item.direktur.toLowerCase().includes(searchKeyword);
+
+        return matchKec && matchStatus && matchSearch;
+      });
+
+      currentPage = 1;
+      updateKPIs(filteredData);
+      renderCharts(filteredData);
+      renderTable();
+    }
+
+    // Update KPI Summary Cards
+    function updateKPIs(data) {
+      const total = data.length;
+      
+      const ahuCount = data.filter(d => 
+        d.statusHukum.toLowerCase().includes('terverifikasi') || 
+        d.statusHukum.toLowerCase().includes('dokumen')
+      ).length;
+
+      const totalModal = data.reduce((acc, curr) => acc + curr.modalApbdes, 0);
+      const totalPegawai = data.reduce((acc, curr) => acc + curr.pegawai, 0);
+
+      const rasioAhu = total > 0 ? Math.round((ahuCount / total) * 100) : 0;
+
+      document.getElementById('kpiTotalBumdes').textContent = total.toLocaleString('id-ID');
+      document.getElementById('kpiBerbadanHukum').textContent = ahuCount.toLocaleString('id-ID');
+      document.getElementById('kpiRasioAhu').textContent = `${rasioAhu}%`;
+      document.getElementById('kpiTotalModal').textContent = 'Rp ' + totalModal.toLocaleString('id-ID');
+      document.getElementById('kpiTotalPegawai').textContent = totalPegawai.toLocaleString('id-ID') + ' Orang';
+    }
+
+    // Render Table Data & Pagination
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      if (filteredData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="py-8 text-center text-slate-400">Tidak ada data BUMDesa yang sesuai filter.</td>
+          </tr>
+        `;
+        document.getElementById('tableInfo').textContent = 'Menampilkan 0 data';
+        document.getElementById('paginationControls').innerHTML = '';
+        return;
+      }
+
+      const startIndex = (currentPage - 1) * rowsPerPage;
+      const endIndex = Math.min(startIndex + rowsPerPage, filteredData.length);
+      const pageData = filteredData.slice(startIndex, endIndex);
+
+      pageData.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+
+        let badgeClass = 'bg-slate-100 text-slate-600';
+        if (item.statusHukum.toLowerCase().includes('terverifikasi')) {
+          badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+        } else if (item.statusHukum.toLowerCase().includes('pendaftaran')) {
+          badgeClass = 'bg-amber-100 text-amber-800 border border-amber-200';
+        }
+
+        row.innerHTML = `
+          <td class="py-3 px-4 font-semibold text-slate-400">${startIndex + index + 1}</td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-slate-800">${item.kecamatan}</div>
+            <div class="text-[11px] text-slate-500">Desa ${item.desa}</div>
+          </td>
+          <td class="py-3 px-4 font-bold text-brand-900">${item.namaBumdes}</td>
+          <td class="py-3 px-4">
+            <div>${item.tahun}</div>
+            <div class="text-[10px] text-slate-400">${item.noPerdes}</div>
+          </td>
+          <td class="py-3 px-4">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold inline-block ${badgeClass}">
+              ${item.statusHukum}
+            </span>
+          </td>
+          <td class="py-3 px-4 font-medium">${item.direktur}</td>
+          <td class="py-3 px-4 text-center font-bold text-slate-700">${item.pegawai}</td>
+          <td class="py-3 px-4 text-right font-bold text-emerald-700">Rp ${item.modalApbdes.toLocaleString('id-ID')}</td>
+          <td class="py-3 px-4 text-center">
+            <button onclick="openModal(${item.id})" class="bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold px-2.5 py-1 rounded-md text-[11px] border border-brand-200 transition flex items-center gap-1 mx-auto">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Detail</span>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('tableInfo').textContent = `Menampilkan ${startIndex + 1} - ${endIndex} dari ${filteredData.length} BUMDesa`;
+      renderPagination();
+    }
+
+    // Render Controls Pagination
+    function renderPagination() {
+      const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+      const container = document.getElementById('paginationControls');
+      container.innerHTML = '';
+
+      if (totalPages <= 1) return;
+
+      for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        btn.className = `px-3 py-1 text-xs rounded-md font-semibold transition ${i === currentPage ? 'bg-brand-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'}`;
+        btn.onclick = () => {
+          currentPage = i;
+          renderTable();
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    // Render Chart.js Visualizations
+    function renderCharts(data) {
+      // 1. BAR CHART: Status per Kecamatan
+      const kecCounts = {};
+      data.forEach(d => {
+        if (!kecCounts[d.kecamatan]) kecCounts[d.kecamatan] = 0;
+        kecCounts[d.kecamatan]++;
+      });
+
+      const barLabels = Object.keys(kecCounts).slice(0, 8); // Ambil top 8 kec
+      const barValues = barLabels.map(k => kecCounts[k]);
+
+      const ctxBar = document.getElementById('barChartStatus').getContext('2d');
+      if (barChartInstance) barChartInstance.destroy();
+
+      barChartInstance = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: barLabels,
+          datasets: [{
+            label: 'Jumlah BUMDesa',
+            data: barValues,
+            backgroundColor: '#10b981',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+          }
+        }
+      });
+
+      // 2. DONUT CHART: Proporsi Legalitas
+      let terverifikasi = 0, proses = 0, belum = 0;
+      data.forEach(d => {
+        const st = d.statusHukum.toLowerCase();
+        if (st.includes('terverifikasi') || st.includes('dokumen')) terverifikasi++;
+        else if (st.includes('pendaftaran') || st.includes('nama')) proses++;
+        else belum++;
+      });
+
+      const ctxDonut = document.getElementById('donutChartLegalitas').getContext('2d');
+      if (donutChartInstance) donutChartInstance.destroy();
+
+      donutChartInstance = new Chart(ctxDonut, {
+        type: 'doughnut',
+        data: {
+          labels: ['Terverifikasi AHU', 'Proses Pendaftaran', 'Belum Berbadan Hukum'],
+          datasets: [{
+            data: [terverifikasi, proses, belum],
+            backgroundColor: ['#10b981', '#f59e0b', '#cbd5e1']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // Open Modal Detail BUMDesa
+    function openModal(id) {
+      const item = masterData.find(d => d.id === id);
+      if (!item) return;
+
+      document.getElementById('modalTitle').textContent = item.namaBumdes;
+      document.getElementById('modalSubtitle').textContent = `Kec. ${item.kecamatan}, Desa ${item.desa}`;
+
+      document.getElementById('modalBody').innerHTML = `
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <span class="text-slate-400 block font-semibold text-[10px]">TAHUN PENDIRIAN</span>
+            <span class="font-bold text-slate-800">${item.tahun}</span>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+            <span class="text-slate-400 block font-semibold text-[10px]">NOMOR PERDES</span>
+            <span class="font-bold text-slate-800">${item.noPerdes}</span>
+          </div>
+        </div>
+
+        <div class="bg-emerald-50 p-3.5 rounded-lg border border-emerald-100">
+          <span class="text-emerald-700 block font-bold text-[10px] uppercase">Status Legalitas Badan Hukum</span>
+          <p class="font-bold text-emerald-900 mt-0.5">${item.statusHukum}</p>
+          <p class="text-[11px] text-emerald-700 mt-1">No. Sertifikat: <span class="font-semibold">${item.noSertifikatAhu}</span></p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-2 text-xs">SUSUNAN PENGURUS</h4>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div><span class="text-slate-400">Direktur:</span> <span class="font-semibold text-slate-800 block">${item.direktur}</span></div>
+            <div><span class="text-slate-400">Sekretaris:</span> <span class="font-semibold text-slate-800 block">${item.sekretaris}</span></div>
+            <div><span class="text-slate-400">Bendahara:</span> <span class="font-semibold text-slate-800 block">${item.bendahara}</span></div>
+            <div><span class="text-slate-400">Penasehat:</span> <span class="font-semibold text-slate-800 block">${item.penasehat}</span></div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100">
+          <h4 class="font-bold text-slate-800 mb-2 text-xs">INFORMASI OPERASIONAL</h4>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-50 p-2.5 rounded-lg">
+              <span class="text-slate-400 block text-[10px]">JUMLAH PEGAWAI</span>
+              <span class="font-bold text-slate-800">${item.pegawai} Orang</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 rounded-lg">
+              <span class="text-slate-400 block text-[10px]">TOTAL MODAL APBDESA</span>
+              <span class="font-bold text-emerald-700">Rp ${item.modalApbdes.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const modal = document.getElementById('detailModal');
+      const container = document.getElementById('modalContainer');
+      
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        container.classList.remove('scale-95');
+      }, 10);
+    }
+
+    // Close Modal
+    function closeModal() {
+      const modal = document.getElementById('detailModal');
+      const container = document.getElementById('modalContainer');
+      
+      modal.classList.add('opacity-0');
+      container.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 200);
+    }
+
+    // Export Data Terfilter ke CSV
+    function exportToCSV() {
+      if (filteredData.length === 0) {
+        alert('Tidak ada data untuk diexport!');
+        return;
+      }
+
+      const csvContent = Papa.unparse(filteredData.map(item => ({
+        'Kecamatan': item.kecamatan,
+        'Desa': item.desa,
+        'Nama BUMDesa': item.namaBumdes,
+        'Tahun Pendirian': item.tahun,
+        'No. Perdes': item.noPerdes,
+        'Status Legalitas': item.statusHukum,
+        'Direktur': item.direktur,
+        'Jumlah Pegawai': item.pegawai,
+        'Modal APBDesa (Rp)': item.modalApbdes
+      })));
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Pendataan_BUMDesa_Lampung_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
