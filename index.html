@@ -1,0 +1,69 @@
+// Ganti dengan Link Public CSV Anda dari Google Sheets (Tab BUM Desa)
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1v.../pub?gid=GANTIKAN_GID_TAB_BUMDESA&single=true&output=csv';
+
+function fetchGoogleSheetData() {
+    updateSyncStatus('Syncing...', 'bg-amber-500');
+
+    Papa.parse(GOOGLE_SHEET_CSV_URL, {
+        download: true,
+        header: false, // Set false agar kita bisa lewati baris judul (Baris 1-5)
+        skipEmptyLines: true,
+        complete: function(results) {
+            const rawRows = results.data;
+            
+            // Mencari indeks baris tempat Header "Nama BUM Desa" berada
+            let headerIndex = -1;
+            for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+                if (rawRows[i].some(cell => cell && cell.toString().includes('Nama BUM Desa'))) {
+                    headerIndex = i;
+                    break;
+                }
+            }
+
+            if (headerIndex === -1) {
+                console.warn("Header tidak ditemukan, menggunakan data default.");
+                return;
+            }
+
+            // Ambil data BUMDesa mulai dari baris setelah header nomor kolom (misal setelah baris dengan angka 1, 2, 3...)
+            const dataRows = rawRows.slice(headerIndex + 2);
+
+            const parsedData = dataRows.filter(row => row[10] && row[10].trim() !== '').map(row => {
+                // Pemetaan Kolom Sesuai Tangkapan Layar:
+                // Kolom 3 (Index 2)  : Provinsi
+                // Kolom 5 (Index 4)  : Kabupaten/Kota
+                // Kolom 7 (Index 6)  : Kecamatan
+                // Kolom 9 (Index 8)  : Desa
+                // Kolom 11 (Index 10): Nama BUM Desa
+                // Kolom 12 (Index 11): Tahun Pendirian
+                // Kolom 13 (Index 12): Nomor Perdes
+                
+                return {
+                    provinsi: row[2] || 'LAMPUNG',
+                    kabupaten: row[4] || 'LAMPUNG SELATAN',
+                    kecamatan: row[6] || '-',
+                    desa: row[8] || '-',
+                    namaBumdes: row[10] || '-',
+                    tahun: parseInt(row[11]) || 2016,
+                    noPerdes: row[12] || '-',
+                    statusHukum: row[13] || 'Belum Berbadan Hukum', // Kolom status pendaftaran
+                    direktur: row[26] || '-',                      // Kolom Direktur
+                    pegawai: parseInt(row[32]) || 0,               // Kolom Jumlah Pegawai
+                    modalApbdes: parseRupiah(row[54] || row[43] || 0) // Kolom Total Modal APBDesa
+                };
+            });
+
+            console.log("Data BUMDesa Terbaca:", parsedData);
+            
+            // Update Dashboard
+            allBumdesData = parsedData;
+            initFilterDropdowns(parsedData);
+            applyFilters();
+            updateSyncStatus('Connected (Google Sheet)', 'bg-emerald-500');
+        },
+        error: function(err) {
+            console.error("Gagal membaca Google Sheets CSV:", err);
+            updateSyncStatus('Disconnected', 'bg-rose-500');
+        }
+    });
+}
